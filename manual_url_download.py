@@ -41,21 +41,18 @@ def download_with_aria2(url, save_dir):
         "-d", save_dir,
         "-o", filename
     ]
-    try:
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-        for line in process.stdout:
-            print(line, end="")
-        process.wait()
-        exit_code = process.returncode
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    for line in process.stdout:
+        print(line, end="")
+    process.wait()
+    exit_code = process.returncode
 
-        if exit_code == 0:
-            print(f"\n{filename} のダウンロードが正常に終了しました。")
-        elif exit_code == 27:
-            print(f"\n{filename} は一部エラーありで完了しました（exit code 27）。")
-        else:
-            print(f"\n{filename} のダウンロードに失敗しました（exit code {exit_code}）。")
-    except Exception as e:
-        print(f"エラーが発生しました: {e}")
+    if exit_code == 0:
+        print(f"\n✅ {filename} のダウンロードが正常に終了しました。")
+    else:
+        print(f"\n⚠️ {filename} のダウンロード失敗しました(exit code {exit_code})")
+        
+    return exit_code
 
 def download(file_path):
     with open(file_path, 'r') as f:

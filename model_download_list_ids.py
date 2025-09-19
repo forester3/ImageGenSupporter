@@ -43,12 +43,11 @@ def download_model(info, output_dir):
 
         if exit_code == 0:
             print(f"\n{info['file_name']} のダウンロードが正常に終了しました。")
-        elif exit_code == 27:
-            print(f"\n{info['file_name']} は一部エラーありで完了しました（exit code 27）。")
         else:
             print(f"\n{info['file_name']} のダウンロードに失敗しました（exit code {exit_code}）。")
     except Exception as e:
         print(f"エラーが発生しました: {e}")
+    return exit_code
 
 def create_download_ui(id_file, output_dir):
     model_ids = load_model_ids(id_file)
