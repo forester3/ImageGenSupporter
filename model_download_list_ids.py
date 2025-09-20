@@ -1,6 +1,6 @@
 import requests
 import subprocess
-import os
+import os, re
 import ipywidgets as widgets
 from IPython.display import display
 
@@ -27,7 +27,7 @@ def download_model(info, output_dir):
     print(f"ダウンロード中: {info['file_name']}")
     cmd = [
         "aria2c",
-        "--summary-interval=5",
+        "--summary-interval=1",
         "--console-log-level=error",
         "-c", "-x", "16", "-s", "16", "-k", "1M",
         info["download_url"],
@@ -36,15 +36,26 @@ def download_model(info, output_dir):
     ]
     try:
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-        for line in process.stdout:
-            print(line, end="")
+
+        progress = widgets.IntProgress(min=0, max=100, value=0, description='0%')
+        display(progress)
+
+        for line in iter(process.stdout.readline, ''):    # aria2cサマリーから進捗％を抽出
+            match = re.search(r'\((\d+)%\)', line)
+            if match:
+                percent = int(match.group(1))
+                progress.value = percent
+                progress.description = f"{percent}%"
+
         process.wait()
         exit_code = process.returncode
 
         if exit_code == 0:
-            print(f"\n{info['file_name']} のダウンロードが正常に終了しました。")
+            progress.value = 100
+            progress.description = "100%"
+            print("✅ ダウンロードが終了しました。")
         else:
-            print(f"\n{info['file_name']} のダウンロードに失敗しました（exit code {exit_code}）。")
+            print(f"⚠️ {info['file_name']} のダウンロードに失敗しました（exit code {exit_code}）。")
     except Exception as e:
         print(f"エラーが発生しました: {e}")
     return exit_code

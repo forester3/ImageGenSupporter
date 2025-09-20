@@ -1,6 +1,8 @@
 import os
 import subprocess
+from ipython_genutils.py3compat import encode
 from ipywidgets import Output
+import ipywidgets as widgets
 from IPython.display import display, clear_output
 import sys
 from urllib.parse import urlparse, parse_qs, unquote
@@ -34,7 +36,7 @@ def download_with_aria2(url, save_dir):
     print(f"ダウンロード中: {filename}")
     cmd = [
         "aria2c",
-        "--summary-interval=5",
+        "--summary-interval=1",
         "--console-log-level=error",
         "-c", "-x", "16", "-s", "16", "-k", "1M",
         url,
@@ -42,15 +44,25 @@ def download_with_aria2(url, save_dir):
         "-o", filename
     ]
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-    for line in process.stdout:
-        print(line, end="")
+    progress = widgets.IntProgress(min=0, max=100, value=0, description='0%')
+    display(progress)
+
+    for line in iter(process.stdout.readline, ''):    # aria2cサマリーから進捗％を抽出
+        match = re.search(r'\((\d+)%\)', line)
+        if match:
+            percent = int(match.group(1))
+            progress.value = percent
+            progress.description = f"{percent}%"
+
     process.wait()
     exit_code = process.returncode
 
     if exit_code == 0:
-        print(f"\n✅ {filename} のダウンロードが正常に終了しました。")
+        progress.value = 100
+        progress.description = "100%"
+        print("✅ ダウンロード終了しました。")
     else:
-        print(f"\n⚠️ {filename} のダウンロード失敗しました(exit code {exit_code})")
+        print(f"⚠️ {filename} のダウンロード失敗しました(exit code {exit_code})")
         
     return exit_code
 
