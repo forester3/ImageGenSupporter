@@ -2,7 +2,9 @@ import requests
 import subprocess
 import os, re
 import ipywidgets as widgets
-from IPython.display import display
+from IPython.display import display, HTML
+
+import manual_url_download as mud
 
 def load_model_ids(filepath):
     with open(filepath, "r", encoding="utf-8") as f:
@@ -90,3 +92,69 @@ def create_download_ui(id_file, output_dir):
 
     download_button.on_click(on_download_clicked)
     display(select, download_button, output)
+
+# CivitAI-DL functions
+def get_model_page_url_from_version(version_id):
+    """モデルバージョンIDから正しいページURLを生成"""
+    api_url = f"https://civitai.com/api/v1/model-versions/{version_id}"
+    try:
+        res = requests.get(api_url).json()
+        parent_model_id = res["modelId"]
+        page_url = f"https://civitai.com/models/{parent_model_id}?modelVersionId={version_id}"
+        return page_url
+    except Exception as e:
+        print(f"モデルページ取得に失敗: {e}")
+        return None
+
+def make_downloader_ui(model_dict, save_dir="./ComfyUI/models/checkpoints"):
+    dropdown = widgets.Dropdown(
+        options=list(model_dict.keys()),
+        description="Model:"
+    )
+    url_input = widgets.Text(
+        placeholder="ここにURLを貼って下さい"
+    )
+    btn_download = widgets.Button(description="Download", button_style="success")
+    out = widgets.Output()
+
+    # モデル切替時にURL欄をクリア
+    def on_model_changed(change):
+        if change["type"] == "change" and change["name"] == "value":
+            url_input.value = ""
+    dropdown.observe(on_model_changed)
+
+    def on_download_clicked(b):
+        out.clear_output()
+        with out:
+            # URL入力があればURL優先
+            if url_input.value.strip():
+                print("🟢 入力URLからダウンロード中…")
+                result = mud.download_with_aria2(url_input.value.strip(), save_dir)
+                if result != 0:
+                    print(f"⚠️ URLダウンロードに失敗しました: {result}")
+                return
+
+            # URLが空ならIDダウンロード
+            model_name = dropdown.value
+            model_id = model_dict[model_name]
+
+            info = fetch_model_info(model_id)
+            if info and "download_url" in info:
+                print(f"🟢 {model_name} (ID:{model_id}) をダウンロード開始")
+                # 既存の download_model(info, output_dir) を使用
+                result = download_model(info, save_dir)
+                if result == 24:
+                    print(f"⚠️ {model_name} の取得には認証が必要です。ブラウザでURLを取得して下さい。")
+                    page_url = get_model_page_url_from_version(model_id)
+                    if page_url:
+                        display(HTML(f'<a href="{page_url}" target="_blank">{model_name} モデルページを開く</a>'))
+                    else:
+                        print("モデルページが見つかりません。")
+            else:
+                print(f"⚠️ {model_name} のダウンロードURLを取得できません。")
+
+    btn_download.on_click(on_download_clicked)
+    display(widgets.VBox([dropdown, url_input, btn_download, out]))
+
+
+
